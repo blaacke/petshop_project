@@ -1,0 +1,130 @@
+<div class="wrap">
+    <header class="header">
+        <div>
+            <h2>Olá, {{ userName() }}!</h2>
+            <p class="muted">Seus agendamentos e pets.</p>
+        </div>
+        <button class="btn primary" (click)="openNovoPet()">Adicionar pet</button>
+        <button class="btn primary" (click)="openNovoAtend()">+ Novo agendamento</button>
+    </header>
+
+    <section>
+        <h3 class="section-title">Agendamentos</h3>
+        <ng-container *ngIf="!loading(); else loadingTpl">
+            <div *ngIf="agendamentos().length; else empty">
+                <div class="card" *ngFor="let ag of agendamentos()">
+                    <div class="row">
+                        <div class="grow">
+                            <div class="title">{{ ag.item.descricao }}</div>
+                            <div class="sub line-between">
+                                <b>{{ ag.pet.nome }}</b>
+                                <span class="value">Valor: {{ formatBRL(ag.item.valor) }}</span>
+                            </div>
+
+                            <div class="sub">
+                                <ng-container *ngIf="ag.pet.raca?.descricao">Raça: {{ ag.pet.raca?.descricao }} •
+                                </ng-container>
+                                Tipo: {{ prettyTipo(ag.item.tipo) }} • Data: {{ ag.item.data | date:'short' }}
+                                <div><ng-container *ngIf="ag.item.situacao"> • Situação: {{ ag.item.situacao
+                                        }}</ng-container></div>
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button class="icon-btn" title="Cancelar agendamento" (click)="onCancel(ag)"
+                                [disabled]="!canCancel(ag.item) || loading()">
+                                <span class="icon">✖</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <ng-template #empty>
+                <p class="muted">Você ainda não possui agendamentos.</p>
+            </ng-template>
+        </ng-container>
+        <ng-template #loadingTpl>
+            <p class="muted">Carregando...</p>
+        </ng-template>
+    </section>
+
+    <button class="logout-fixed" (click)="logout()">⎋ Sair</button>
+</div>
+
+<!-- Dialog Novo Agendamento -->
+<div class="dialog-backdrop" *ngIf="novoOpen()" (click)="closeNovo()"></div>
+<div class="dialog" *ngIf="novoOpen()" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+        <h4>Novo agendamento</h4>
+    </div>
+    <form [formGroup]="novoForm" class="dialog-body" (ngSubmit)="submitNovo()">
+        <label class="label">Pet</label>
+        <select class="input" formControlName="petId">
+            <option [ngValue]="null" disabled>Selecione um pet</option>
+            <option *ngFor="let p of (cliente()?.pets || [])" [ngValue]="p.id">
+                {{ p.nome }} <ng-container *ngIf="p.raca?.descricao">({{ p.raca?.descricao }})</ng-container>
+            </option>
+        </select>
+
+        <label class="label">Data</label>
+        <input class="input" type="date" formControlName="date" [min]="today | date:'yyyy-MM-dd'" />
+
+        <div *ngIf="isWeekend(novoForm.value.date!)" class="warn">
+            Agendamentos apenas de segunda a sexta, das 08:00 às 18:00.
+        </div>
+
+        <div *ngIf="!isWeekend(novoForm.value.date!)">
+            <label class="label">Horário</label>
+        </div>
+        <div class="slots">
+            <button *ngFor="let s of slotsFor(novoForm.value.date!)" type="button" class="slot-btn"
+                [class.selected]="selectedTime() === s" [disabled]="isBooked(s) || isPastSlot(novoForm.value.date!, s)"
+                (click)="selectTime(s)">
+                {{ s }}
+            </button>
+        </div>
+
+        <label class="label">Tipo de atendimento</label>
+        <select class="input" formControlName="tipo">
+            <option [ngValue]="'banho'">Banho (120 minutos)</option>
+            <option [ngValue]="'tosa'">Tosa (60 minutos)</option>
+            <option [ngValue]="'banho_e_tosa'">Banho e tosa (180 minutos)</option>
+        </select>
+
+        <label class="label">Observação</label>
+        <input class="input" type="text" placeholder="Opcional" formControlName="observacao" />
+
+        <label class="label">Valor</label>
+        <input class="input readonly" type="text" [value]="formatBRL(novoValor())" readonly />
+
+        <div class="dialog-actions">
+            <button type="button" class="btn" (click)="closeNovo()">Cancelar</button>
+            <button type="submit" class="btn primary" [disabled]="novoForm.invalid || loading()">Salvar</button>
+        </div>
+    </form>
+</div>
+
+<!-- Dialog Adicionar Pet -->
+<div class="dialog-backdrop" *ngIf="novoPetOpen()" (click)="closeNovoPet()"></div>
+<div class="dialog" *ngIf="novoPetOpen()" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+        <h4>Novo pet</h4>
+    </div>
+
+    <form [formGroup]="novoPetForm" class="dialog-body" (ngSubmit)="submitNovoPet()">
+        <label class="label">Nome</label>
+        <input class="input" type="text" formControlName="nome" placeholder="Ex.: Bidu" />
+
+        <label class="label">Raça (descrição)</label>
+        <input class="input" type="text" formControlName="descricao" placeholder="Ex.: Vira-lata" />
+
+        <label class="label">Data de nascimento (opcional)</label>
+        <input class="input" type="date" formControlName="dob" />
+
+        <div class="dialog-actions">
+            <button type="button" class="btn" (click)="closeNovoPet()">Cancelar</button>
+            <button type="submit" class="btn primary" [disabled]="novoPetForm.invalid || loading()">Salvar</button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,145 @@
+<div class="layout">
+    <aside class="sidebar">
+        <h3 style="margin:0 0 4px 0">Admin</h3>
+        <p class="muted" style="margin:0 0 12px 0">Olá, Administrador!</p>
+
+        <button class="menu-btn" [class.active]="tab() === 'clientes'" (click)="tab.set('clientes')">
+            Clientes
+        </button>
+        <button class="menu-btn" [class.active]="tab() === 'agendamentos'"
+            (click)="tab.set('agendamentos'); loadAgForDay(selectedDay())">
+            Agendamentos
+        </button>
+
+        <hr style="margin:12px 0; border:none; border-top:1px solid #eee">
+        <button class="logout-btn" (click)="logout()">
+            <span class="logout-ico">⎋</span>
+            <span>Sair</span>
+        </button>
+    </aside>
+
+    <main class="content">
+        <!-- clientes -->
+        <ng-container *ngIf="tab() === 'clientes'; else agds">
+            <header style="margin-bottom:12px">
+                <h2 style="margin:0 0 4px 0">Clientes</h2>
+                <p class="muted" *ngIf="!loading()">Listando {{from()+1}}–{{to()}} de {{ total() }}.</p>
+                <p class="muted" *ngIf="loading()">Carregando...</p>
+            </header>
+
+            <div class="list">
+                <div class="card" *ngFor="let c of clientes()">
+                    <div class="row">
+                        <div>
+                            <div class="title">{{ c.nome }}</div>
+                            <div class="sub">Documento: {{ c.documento || '—' }}</div>
+                            <div class="sub" *ngIf="primaryContato(c) as pc">Contato: {{ pc.tipo }} • {{ pc.valor }}
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button class="icon-btn" [title]="c.situacao === 'ATIVO' ? 'Inativar' : 'Ativar'"
+                                (click)="onToggleSituacao(c)">
+                                <span class="icon">{{ c.situacao === 'ATIVO' ? '⏻' : '▶' }}</span>
+                            </button>
+                            <button class="icon-btn" title="Pets" (click)="toggleExpand(c.id)">
+                                <span class="icon">🐾</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chips">
+                        <span class="chip">Status: {{ c.situacao || 'ATIVO' }}</span>
+                        <span class="chip" *ngIf="c.pets?.length">Pets: {{ c.pets.length }}</span>
+                        <span class="chip" *ngIf="c.dataCadastro">Cadastro: {{ c.dataCadastro | date:'shortDate'
+                            }}</span>
+                    </div>
+
+                    <div class="expand" *ngIf="isExpanded(c.id)">
+                        <div *ngIf="c.pets?.length; else noPets">
+                            <div *ngFor="let p of c.pets"
+                                style="display:flex; align-items:center; justify-content:space-between; padding:6px 0;">
+                                <div>
+                                    <div class="title">{{ p.nome }}</div>
+                                    <div class="sub">
+                                        Raça: {{ p.raca?.descricao || '—' }}
+                                        <span *ngIf="p.dob"> • Nasc.: {{ p.dob | date:'mediumDate' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <ng-template #noPets><span class="muted">Sem pets cadastrados.</span></ng-template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pager">
+                <button class="btn" (click)="prevClientes()"
+                    [disabled]="pageIndex() === 0 || loading()">Anterior</button>
+                <span>Página {{ pageIndex()+1 }} de {{ totalPages() }}</span>
+                <button class="btn" (click)="nextClientes()"
+                    [disabled]="pageIndex()+1 >= totalPages() || loading()">Próxima</button>
+                <span class="spacer"></span>
+                <button class="btn" (click)="reloadClientes()" [disabled]="loading()">Recarregar</button>
+            </div>
+        </ng-container>
+
+        <!-- atendimentos-->
+        <ng-template #agds>
+            <header style="margin-bottom:12px">
+                <h2 style="margin:0 0 4px 0">Agendamentos</h2>
+
+                <div class="day-nav">
+                    <button class="btn" (click)="prevDay()" [disabled]="agLoading()">◀ Dia anterior</button>
+                    <div class="day-pill">{{ selectedDay() | date:'fullDate' }}</div>
+                    <button class="btn" (click)="nextDay()" [disabled]="agLoading()">Dia seguinte ▶</button>
+                </div>
+
+                <p class="muted" *ngIf="!agLoading()">
+                    {{ agendamentos().length }} agendamento(s) em {{ selectedDay() | date:'shortDate' }}.
+                </p>
+                <p class="muted" *ngIf="agLoading()">Carregando...</p>
+            </header>
+
+            <div class="list">
+                <div class="card" *ngFor="let a of agendamentos()">
+                    <div class="row">
+                        <div class="grow">
+                            <div class="title line-between">
+                                <span>{{ a.pet.nome }}</span>
+                                <span class="chip" [ngClass]="'sit-'+a.situacao">{{ a.situacao }}</span>
+                            </div>
+
+                            <div class="sub">
+                                Tutor: <b>{{ a.tutor.nome }}</b>
+                                <ng-container *ngIf="a.tutor?.documento"></ng-container>
+                                <div><ng-container *ngIf="a.tutor?.contato"> • Contato: {{ a.tutor.contato?.tipo }} • {{
+                                        a.tutor.contato?.valor }}</ng-container></div>
+                            </div>
+
+                            <div class="sub line-between">
+                                <span>Tipo: {{ a.tipo }} • Hora: {{ a.data | date:'shortTime' }}</span>
+                                <span class="value">Valor: {{ formatBRL(a.valor) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button class="icon-btn" title="Marcar como cancelado" [disabled]="!canCancel(a)"
+                                (click)="updateAtendimento(a, 'cancelado')">
+                                <span class="material-symbols-outlined" style="color:red;">cancel</span>
+                            </button>
+                            <button class="icon-btn" title="Marcar como realizado" [disabled]="!canCancel(a)"
+                                (click)="updateAtendimento(a, 'realizado')">
+                                <span class="material-symbols-outlined" style="color:green;">check_circle</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="!agLoading() && !agendamentos().length" class="muted" style="margin-top:8px">
+                Nenhum agendamento neste dia.
+            </div>
+        </ng-template>
+    </main>
+</div>
